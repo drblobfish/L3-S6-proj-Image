@@ -2,63 +2,75 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import random as rd
+import os
 
 def scale_image(image, target_size):
     height = image.shape[0]
     width = image.shape[1]
+    if height <= target_size and width <= target_size:
+        print("The image is already smaler than the target size.\nScaling will not proceed.")
+        return image
     if height > width:
         ratio = target_size / height
     else:
         ratio = target_size / width
     new_height = int(height * ratio)
     new_width = int(width * ratio)
-    new_image = np.zeros((new_height, new_width, image.shape[2]))
+    if len(image.shape) > 2:
+        new_image = np.zeros((new_height, new_width, image.shape[2]))
+    else:
+        new_image = np.zeros((new_height, new_width))
     for i in range(new_height):
         for j in range(new_width):
-            i_pos = int(i / ratio)
-            j_pos = int(j / ratio)
-            new_image[i][j] = image[i_pos][j_pos]
+            new_image[i][j] = image[int(i / ratio)][int(j / ratio)]
     print("Image Scaling : Done")
     return new_image
 
-def convert_image_data_type(image):
+def normalize_image_data_type(image):
     height = image.shape[0]
     width = image.shape[1]
     if len(image.shape) > 2 and image.shape[2] >= 3:
         new_image = np.zeros((height, width, image.shape[2]), dtype=np.uint8)
-        if isinstance(image[0][0][0], float):
+        if np.max(image) <= 1:
             for i in range(height):
                 for j in range(width):
-                    new_image[i][j][0] = image[i][j][0] * 255
-                    new_image[i][j][1] = image[i][j][1] * 255
-                    new_image[i][j][2] = image[i][j][2] * 255
-        elif isinstance(image[0][0][0], int):
+                    new_image[i][j][0] = int(image[i][j][0] * 255)
+                    new_image[i][j][1] = int(image[i][j][1] * 255)
+                    new_image[i][j][2] = int(image[i][j][2] * 255)
+        else:
             for i in range(height):
                 for j in range(width):
-                    new_image[i][j][0] = image[i][j][0]
-                    new_image[i][j][1] = image[i][j][1]
-                    new_image[i][j][2] = image[i][j][2]
+                    new_image[i][j][0] = int(image[i][j][0])
+                    new_image[i][j][1] = int(image[i][j][1])
+                    new_image[i][j][2] = int(image[i][j][2])
     else:
         new_image = np.zeros((height, width), dtype=np.uint8)
-        if isinstance(image[0][0], np.float32):
+        if np.max(image) <= 1:
             for i in range(height):
                 for j in range(width):
-                    new_image[i][j] = image[i][j] * 255
-        elif isinstance(image[0][0], int):
+                    new_image[i][j] = int(image[i][j] * 255)
+        else:
             for i in range(height):
                 for j in range(width):
-                    new_image[i][j] = image[i][j]
-    print("Image Data Type Conversion : Done")
+                    new_image[i][j] = int(image[i][j])
+    print("Image Data Type Normalization : Done")
     return new_image
 
 def color_to_gray(image):
+    if len(image.shape) < 3 or image.shape[2] < 3:
+        print("Image is already in gray scale.\nThe conversion of color space will not proceed.")
+        return image
     height = image.shape[0]
     width = image.shape[1]
     gray_image = np.zeros((height, width), dtype=np.uint8)
     for i in range(height):
         for j in range(width):
-            gray_image[i][j] = int((image[i][j][0] + image[i][j][1] * 2 + image[i][j][2]) / 4)
-    print("Image To Gray : Done")
+            red_value = image[i][j][0] * 299
+            green_value = image[i][j][1] * 587
+            blue_value = image[i][j][2] * 114
+            gray_value = int((red_value + green_value + blue_value) / 1000)
+            gray_image[i][j] = gray_value
+    print("Convertion of image color space to gray scale : Done")
     return gray_image
 
 def generate_histogram(image):
@@ -108,17 +120,15 @@ def equalize_image(image):
     print("Image Equalization : Done")
     return equalized_image
     
-
 def k_means(image):
     height = image.shape[0]
     width = image.shape[1]
-    center_image = np.zeros((height, width))
-    k_means_image = np.zeros((height, width))
+    center_image = np.zeros((height, width), dtype=np.uint8)
+    k_means_image = np.zeros((height, width), dtype=np.bool_)
     center_1 = rd.randint(0, 255)
     center_2 = rd.randint(0, 255)
     while center_2 == center_1:
         center_2 = rd.randint(0, 255)
-    
     center_1_iteration_precedante = None
     center_2_iteration_precedante = None
     while center_1 != center_1_iteration_precedante and center_2 != center_2_iteration_precedante:
@@ -153,26 +163,39 @@ def k_means(image):
             if center_image[i][j] == 1:
                 k_means_image[i][j] = 0
             elif center_image[i][j] == 2:
-                k_means_image[i][j] = 255
+                k_means_image[i][j] = 1
+    print("Application of Kmeans : Done")
     return k_means_image
 
-gray_image = color_to_gray(convert_image_data_type(scale_image(mpimg.imread("../Images/7.jpg"), 1000)))
-equalized_image = equalize_image(gray_image)
-plt.plot(generate_histogram(equalized_image))
-plt.show()
-plt.plot(generate_cumulative_histogram(generate_histogram(equalized_image)))
-plt.show()
-mpimg.imsave("../Test_Equalized.jpg", equalized_image, cmap="gray", vmin=0, vmax=255)
+def median_filter(image, filter_size):
+    height = image.shape[0]
+    width = image.shape[1]
+    filtered_image = np.zeros((height, width), dtype=np.bool_)
+    for i in range(height):
+        for j in range(width):
+            pixel_values = np.zeros((filter_size*filter_size))
+            counter = 0
+            for k in range(i - int(filter_size / 2), i + int(filter_size / 2) + 1):
+                for l in range(j - int(filter_size / 2), j + int(filter_size / 2) + 1):
+                    if k >= height:
+                        k = k - height
+                    if l >= width:
+                        l = l - width
+                    pixel_values[counter] = image[k][l]
+                    counter += 1
+            filtered_image[i][j] = np.median(pixel_values)
+    print("Application of Median Filter : Done")
+    return filtered_image
 
-"""
-for i in range(10):
-    image = redimensionner_image(mpimg.imread("../Images/"+ str(i) +".jpg"), 1000)
-    image_gray = color_to_gray(image)
-    image_equalized = equal(image_gray)
-    image_kmeans = k_means(image_gray)
-    plt.plot(histogramme_cumule(image_gray))
-    plt.show()
-    mpimg.imsave("../Resultat_Kmeans/"+ str(i) +"_gray.png", image_gray, cmap="gray", vmin=0, vmax=255)
-    mpimg.imsave("../Resultat_Kmeans/"+ str(i) +"_equalized.png", image_equalized, cmap="gray", vmin=0, vmax=255)
-    mpimg.imsave("../Resultat_Kmeans/"+ str(i) +"_kmeans.png", image_kmeans, cmap="gray", vmin=0, vmax=255)
-"""
+
+for i in range(20, 47):
+    print("============================================")
+    print("===============Processing #" + str(i) + "===============")
+    print("============================================")
+    image = normalize_image_data_type(scale_image(mpimg.imread("../Images/" + str(i) + ".jpg"), 1000))
+    gray_image = color_to_gray(image)
+    kmeans_gray_image = k_means(gray_image)
+    filtered_image = median_filter(kmeans_gray_image, 9)
+    mpimg.imsave("../Test_Resultat/" + str(i) + "_1_gray_image.jpg", gray_image, cmap="gray", vmin=0, vmax=255)
+    mpimg.imsave("../Test_Resultat/" + str(i) + "_2_kmeans_gray_image.jpg", kmeans_gray_image, cmap="gray", vmin=0, vmax=1)
+    mpimg.imsave("../Test_Resultat/" + str(i) + "_3_filtered_image.jpg", filtered_image, cmap="gray", vmin=0, vmax=1)

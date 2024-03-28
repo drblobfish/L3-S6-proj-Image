@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from test_traitement import *
 import cv2
 
-np.set_printoptions(linewidth=400)
+#source : https://towardsdatascience.com/canny-edge-detection-step-by-step-in-python-computer-vision-b49c3a2d8123
 def gaussian_kernel(size, sigma):
     center = size//2
     x, y = np.meshgrid(np.arange(-center, center+1), np.arange(-center, center+1))
@@ -53,6 +53,7 @@ def sobel_filter(image):
     return (gradient*255/gradient.max()), theta
 
 def non_maximum_suppression(image, theta):
+    #Réduction de l'épaisseur des contours
     height = image.shape[0]
     width = image.shape[1]
     filtered_image = np.zeros_like(image, dtype=np.int32)
@@ -87,11 +88,52 @@ def non_maximum_suppression(image, theta):
                 filtered_image[i, j] = 0
     return filtered_image
 
+def double_threshold(image, low_thresh, high_thresh):
+    #Double seuillage : <low = suppression, low< <high = pixel faible, >high = pixel fort
 
-def canny(image, thresh1, thresh2):
-    #Preprocessing : gray+blur
-    canny_image = gaussian_filter(color_to_gray(image), 5, 1)
-    pass
+    height = image.shape[0]
+    width = image.shape[1]
+    filtered_image = np.zeros_like(image, dtype=np.int32)
+
+    #Obtention des coordonnées des pixels forts et faibles
+    strong_i, strong_j = np.where(image>=high_thresh)
+    weak_i, weak_j = np.where((image>=low_thresh) & (image<high_thresh))
+
+    #Valeurs des pixels forts et faibles
+    strong = np.int32(255)
+    weak = np.int32(25)
+    #Affectation des valeurs aux coordonnées
+    filtered_image[strong_i, strong_j] = strong
+    filtered_image[weak_i, weak_j] = weak
+    return filtered_image, strong, weak
+
+def hysteresis(image, strong, weak):
+    #On transforme les pixels faibles en pixels fort s'ils sont connectés à un pixel fort
+    height = image.shape[0]
+    width = image.shape[1]
+    for i in range(1, height-1):
+        for j in range(1,width-1):
+            if image[i,j]==weak:
+                if (image[i-1,j-1]==strong or image[i-1,j]==strong or image[i-1,j+1]==strong or
+                    image[i, j-1]==strong or image[i,j+1]==strong or
+                    image[i+1, j-1]==strong or image[i+1,j]==strong or image[i+1,j+1]==strong):
+                    image[i,j] = strong
+                else:
+                    image[i,j] = 0
+    return image
+
+
+
+
+
+def canny(image, low_thresh, high_thresh):
+    gaussian_img = gaussian_filter(color_to_gray(image), 5, 1)
+    sobel_img, theta = sobel_filter(gaussian_img)
+    non_max_img = non_maximum_suppression(sobel_img, theta)
+    thresh_img, strong, weak = double_threshold(non_max_img, low_thresh, high_thresh)
+    hysteresis_img = hysteresis(thresh_img, strong, weak)
+
+    return hysteresis_img
 
 
 
@@ -100,18 +142,34 @@ def canny(image, thresh1, thresh2):
 
 if __name__ == "__main__":
     image = normalize_image_data_type(scale_image(plt.imread("../Images/0.jpg"), 1000))
-    image = color_to_gray(image,cmap='gray', vmin=0, vmax=255)
-    plt.subplot(3,3,1)
-    plt.imshow(image)
+    image = color_to_gray(image)
+    plt.subplot(2,3,1)
+    plt.imshow(image,cmap='gray', vmin=0, vmax=255)
+    plt.title("image gris")
+
+    gaussian_img = gaussian_filter(image, 5, 1)
+    plt.subplot(2,3,2)
+    plt.imshow(gaussian_img,cmap='gray', vmin=0, vmax=255)
+    plt.title("Après filtre gaussien")
 
     sobel_img = sobel_filter(image)
-    plt.subplot(3,3,2)
+    plt.subplot(2,3,3)
     plt.imshow(sobel_img[0],cmap='gray', vmin=0, vmax=255)
+    plt.title("Après filtre de Sobel")
 
     non_max_img = non_maximum_suppression(sobel_img[0], sobel_img[1])
-    plt.subplot(3,3,3)
+    plt.subplot(2,3,4)
     plt.imshow(non_max_img,cmap='gray', vmin=0, vmax=255)
+    plt.title("Après non-max ")
 
+    double_thresh_img = double_threshold(non_max_img, 50, 100)
+    plt.subplot(2,3,5)
+    plt.imshow(double_thresh_img[0],cmap='gray', vmin=0, vmax=255)
+    plt.title("Après double seuillage")
 
+    hysteresis_img = hysteresis(double_thresh_img[0], double_thresh_img[1], double_thresh_img[2])
+    plt.subplot(2,3,6)
+    plt.imshow(hysteresis_img,cmap='gray', vmin=0, vmax=255)
+    plt.title("Après hysteresis")
 
     plt.show()

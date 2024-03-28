@@ -187,15 +187,15 @@ def median_filter(image, filter_size):
     print("Application of Median Filter : Done")
     return filtered_image
 
-
-for i in range(20, 47):
-    print("============================================")
-    print("===============Processing #" + str(i) + "===============")
-    print("============================================")
-    image = normalize_image_data_type(scale_image(mpimg.imread("../Images/" + str(i) + ".jpg"), 1000))
-    gray_image = color_to_gray(image)
-    kmeans_gray_image = k_means(gray_image)
-    filtered_image = median_filter(kmeans_gray_image, 9)
-    mpimg.imsave("../Test_Resultat/" + str(i) + "_1_gray_image.jpg", gray_image, cmap="gray", vmin=0, vmax=255)
-    mpimg.imsave("../Test_Resultat/" + str(i) + "_2_kmeans_gray_image.jpg", kmeans_gray_image, cmap="gray", vmin=0, vmax=1)
-    mpimg.imsave("../Test_Resultat/" + str(i) + "_3_filtered_image.jpg", filtered_image, cmap="gray", vmin=0, vmax=1)
+if __name__ == "__main__":
+    for i in range(20, 47):
+        print("============================================")
+        print("===============Processing #" + str(i) + "===============")
+        print("============================================")
+        image = normalize_image_data_type(scale_image(mpimg.imread("../Images/" + str(i) + ".jpg"), 1000))
+        gray_image = color_to_gray(image)
+        kmeans_gray_image = k_means(gray_image)
+        filtered_image = median_filter(kmeans_gray_image, 9)
+        mpimg.imsave("../Test_Resultat/" + str(i) + "_1_gray_image.jpg", gray_image, cmap="gray", vmin=0, vmax=255)
+        mpimg.imsave("../Test_Resultat/" + str(i) + "_2_kmeans_gray_image.jpg", kmeans_gray_image, cmap="gray", vmin=0, vmax=1)
+        mpimg.imsave("../Test_Resultat/" + str(i) + "_3_filtered_image.jpg", filtered_image, cmap="gray", vmin=0, vmax=1)
